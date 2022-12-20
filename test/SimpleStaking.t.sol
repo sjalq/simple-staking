@@ -2,24 +2,51 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "../src/Counter.sol";
+import "../src/SimpleStaking.sol";
 
 contract SimpleStakingTest is Test {
-    Counter public counter;
+    SimpleStaking public simpleStaking;
 
-    function setUp() public {
-        counter = new Counter();
-        counter.setNumber(0);
+    function setUp() 
+        public 
+    {
+        // vara = new WeirdToken();
     }
 
-    function testIncrement() public {
-        counter.increment();
-        assertEq(counter.number(), 1);
+    function testSS_C_01()
+        public
+    {
+        // simpleStaking = new SimpleStaking(vara);
     }
 
-    function testSetNumber(uint256 x) public {
-        counter.setNumber(x);
-        assertEq(counter.number(), x);
+    function testSS_SU_01(uint _amount)
+        public
+    {
+        // simpleStaking.Stake(100);
+    }
+
+    function testSS_SU_02(uint _amount)
+        public
+    {
+        // simpleStaking.Stake(100);
+    }
+
+    function testSS_SU_03(uint _amount)
+        public
+    {
+        // simpleStaking.Stake(100);
+    }
+
+    function testSS_U01()
+        public
+    {
+        // simpleStaking.Unstake();
+    }
+
+    function testSS_U02()
+        public
+    {
+        // simpleStaking.Unstake();
     }
 }
 
