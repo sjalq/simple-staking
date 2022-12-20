@@ -46,7 +46,7 @@ contract SimpleStaking
         private
     {
         // update the mappings
-        stakedFunds[msg.sender] = _amount; // not += because we unstake first to emit noeugh info to do the accounting for the merkle drop
+        stakedFunds[msg.sender] = _currentStake + _amount; // not += because we unstake first to emit noeugh info to do the accounting for the merkle drop
         releaseDates[msg.sender] = _releaseDate;
 
         // transfer _amount of vara to this contract

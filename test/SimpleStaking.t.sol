@@ -17,7 +17,7 @@ contract VaraToken is ERC20 {
 contract SimpleStakingTest is Test 
 {
     event Staked(address indexed _staker, uint _amount, uint _duration, uint indexed _releaseDate);
-    event Unstaked(address _staker, uint _amount, uint indexed _originalReleaseDate, uint indexed _releaseDate);
+    event Unstaked(address indexed _staker, uint _amount, uint indexed _originalReleaseDate, uint indexed _releaseDate);
 
     SimpleStaking public simpleStaking;
     VaraToken public vara;
@@ -81,9 +81,19 @@ contract SimpleStakingTest is Test
         assertEq(releaseDateAfter, 90 days + block.timestamp); 
     }
 
-    function testSS_SU_03CanStakeRepeatedly(uint _firstAmount, uint _secondAmount, uint32 _secondsToJump)
+    function testSS_SU_03CanStakeMore(uint _firstAmount, uint _secondAmount, uint32 _secondsToJump)
         public
     {
+        if (_firstAmount > vara.balanceOf(address(this))) 
+        {
+            _firstAmount = vara.balanceOf(address(this));
+        }
+
+        if (_firstAmount < 300*10**18) 
+        {
+            _firstAmount = 300*10**18;
+        }
+
         testSS_SU_02CanStake300orMoreVaraIfNoStakeAtPresent(_firstAmount);
 
         if (_secondAmount > vara.balanceOf(address(this))) 
@@ -92,22 +102,18 @@ contract SimpleStakingTest is Test
         }
     
         vara.approve(address(simpleStaking), _secondAmount);
-        console.log("allowance:%s", vara.allowance(address(this), address(simpleStaking)));
-        console.log("balance:%s", vara.balanceOf(address(this)));
 
         uint timeBefore = block.timestamp;
         vm.warp(block.timestamp + _secondsToJump);
 
-        // vm.expectEmit(true, true, true, true);
-        // emit Unstaked(address(this), _firstAmount, timeBefore + 90 days, block.timestamp);
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(address(this), _firstAmount, timeBefore + 90 days, block.timestamp);
 
-        
         uint stakedBalanceBefore = simpleStaking.stakedFunds(address(this));
-        // vm.expectEmit(true, true, false, true);
-        // emit Staked(address(this), _secondAmount + stakedBalanceBefore, 90 days, block.timestamp + 90 days);
+        vm.expectEmit(true, true, false, true);
+        emit Staked(address(this), _secondAmount + stakedBalanceBefore, 90 days, block.timestamp + 90 days);
 
         simpleStaking.Stake(_secondAmount);
-
         uint stakedBalanceAfter = simpleStaking.stakedFunds(address(this));
         assertEq(stakedBalanceAfter, stakedBalanceBefore + _secondAmount);
         assertEq(stakedBalanceAfter, _firstAmount + _secondAmount);
