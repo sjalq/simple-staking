@@ -16,7 +16,7 @@ contract SimpleStaking
     mapping (address => uint) releaseDates; 
 
     event Staked(address _staker, uint _amount, uint _duration, uint _releaseDate);
-    event Unstaked(address _staker, uint _amount, uint _releaseDate);
+    event Unstaked(address _staker, uint _amount, uint _originalReleaseDate, uint _releaseDate);
 
     constructor (IERC20 _vara) {
         vara = _vara;
@@ -28,15 +28,17 @@ contract SimpleStaking
         require(_amount + stakedFunds[msg.sender] >= 300 * 10**18, "stake must be >= 300 vara");
 
         uint currentStake = stakedFunds[msg.sender];
-        _unstake(currentStake);
+        if (currentStake >= 0) 
+            _unstake();
+
         _stake(currentStake + _amount, 90 days + block.timestamp);
     }
 
-    function Unstake(uint _amount)
+    function Unstake()
         public
     {
         require(releaseDates[msg.sender] > block.timestamp, "too early to unstake");
-        _unstake(_amount);
+        _unstake();
     }
 
     function _stake(uint _amount, uint _releaseDate)
@@ -53,17 +55,16 @@ contract SimpleStaking
         emit Staked(msg.sender, _amount, _releaseDate - block.timestamp, _releaseDate);
     }
 
-    function _unstake(uint _amount)
+    function _unstake()
         private
     {
-        // ensure that the staker has _amount staked
-        require(stakedFunds[msg.sender] >= _amount, "unstaking too much");
+        uint totalStaked = stakedFunds[msg.sender];
         // emit an unstaking event
-        emit Unstaked(msg.sender, _amount, releaseDates[msg.sender]);
+        emit Unstaked(msg.sender, totalStaked, releaseDates[msg.sender], block.timestamp);
         // update the mappings
-        stakedFunds[msg.sender] -= _amount; // this actually is also a require as it would have an underflow error
+        stakedFunds[msg.sender] = 0; 
         releaseDates[msg.sender] = 0;
         // transfer _amount of vara to msg.sender
-        vara.transfer(msg.sender, _amount);
+        vara.transfer(msg.sender, totalStaked);
     }
 }
