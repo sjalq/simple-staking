@@ -10,15 +10,16 @@ abstract contract IERC20
 
 contract SimpleStaking 
 {
+    event Staked(address indexed _staker, uint _amount, uint _duration, uint indexed _releaseDate);
+    event Unstaked(address indexed _staker, uint _amount, uint indexed _originalReleaseDate, uint indexed _releaseDate);
+
     IERC20 public vara; // = IERC20(0xYourVaraTokenContractAddress) 
      
-    mapping (address => uint) stakedFunds;
-    mapping (address => uint) releaseDates; 
+    mapping (address => uint) public stakedFunds;
+    mapping (address => uint) public releaseDates; 
 
-    event Staked(address _staker, uint _amount, uint _duration, uint _releaseDate);
-    event Unstaked(address _staker, uint _amount, uint _originalReleaseDate, uint _releaseDate);
-
-    constructor (IERC20 _vara) {
+    constructor (IERC20 _vara) 
+    {
         vara = _vara;
     }
 
@@ -29,19 +30,19 @@ contract SimpleStaking
 
         uint currentStake = stakedFunds[msg.sender];
         if (currentStake >= 0) 
-            _unstake();
+            _unstake(false);
 
-        _stake(currentStake + _amount, 90 days + block.timestamp);
+        _stake(currentStake, _amount, 90 days + block.timestamp);
     }
 
     function Unstake()
         public
     {
         require(releaseDates[msg.sender] > block.timestamp, "too early to unstake");
-        _unstake();
+        _unstake(true);
     }
 
-    function _stake(uint _amount, uint _releaseDate)
+    function _stake(uint _currentStake, uint _amount, uint _releaseDate)
         private
     {
         // update the mappings
@@ -52,10 +53,10 @@ contract SimpleStaking
         vara.transferFrom(msg.sender, address(this), _amount);
 
         // emit a Stake event
-        emit Staked(msg.sender, _amount, _releaseDate - block.timestamp, _releaseDate);
+        emit Staked(msg.sender, _currentStake + _amount, _releaseDate - block.timestamp, _releaseDate);
     }
 
-    function _unstake()
+    function _unstake(bool _returnFunds)
         private
     {
         uint totalStaked = stakedFunds[msg.sender];
@@ -64,7 +65,10 @@ contract SimpleStaking
         // update the mappings
         stakedFunds[msg.sender] = 0; 
         releaseDates[msg.sender] = 0;
+
         // transfer _amount of vara to msg.sender
-        vara.transfer(msg.sender, totalStaked);
+        // if _returnFunds is false, the vara is not returned, to prevent allowance issues
+        if (_returnFunds)
+            vara.transfer(msg.sender, totalStaked);
     }
 }
