@@ -22,6 +22,14 @@ contract SimpleStakingTest is Test
     SimpleStaking public simpleStaking;
     VaraToken public vara;
 
+    function clamp(uint value, uint min, uint max) 
+        internal 
+        pure 
+        returns (uint) 
+    {
+        return value < min ? min : value > max ? max : value;
+    }
+
     function setUp() 
         public 
     {
@@ -43,10 +51,7 @@ contract SimpleStakingTest is Test
     function testSS_SU_01_CannotStakeLessThan300(uint _amount)
         public
     {
-        if (_amount >= 300*10**18) 
-        {
-            _amount = (300*10**18)-1;
-        }
+        _amount = clamp(_amount, 0, 300*10**18 - 1);
 
         vara.approve(address(simpleStaking), _amount);
 
@@ -57,20 +62,15 @@ contract SimpleStakingTest is Test
     function testSS_SU_02CanStake300orMoreVaraIfNoStakeAtPresent(uint _amount)
         public
     {
-        if (_amount > vara.balanceOf(address(this))) 
-        {
-            _amount = vara.balanceOf(address(this));
-        }
-
-        if (_amount < 300*10**18) 
-        {
-            _amount = 300*10**18;
-        }
+        _amount = clamp(_amount, 300*10**18, vara.balanceOf(address(this)));
 
         vara.approve(address(simpleStaking), _amount);
 
         vm.expectEmit(true, true, false, true);
         emit Staked(address(this), _amount, 90 days, block.timestamp + 90 days);
+
+        uint stakerVaraBalanceBefore = vara.balanceOf(address(this));
+        uint stakingContractVaraBalanceBefore = vara.balanceOf(address(simpleStaking));
 
         simpleStaking.Stake(_amount);
 
@@ -79,27 +79,21 @@ contract SimpleStakingTest is Test
 
         uint releaseDateAfter = simpleStaking.releaseDates(address(this));
         assertEq(releaseDateAfter, 90 days + block.timestamp); 
+
+        uint stakerVaraBalanceAfter = vara.balanceOf(address(this));
+        uint stakingContractVaraBalanceAfter = vara.balanceOf(address(simpleStaking));
+        assertEq(stakerVaraBalanceAfter, stakerVaraBalanceBefore - _amount);
+        assertEq(stakingContractVaraBalanceAfter, stakingContractVaraBalanceBefore + _amount);
     }
 
     function testSS_SU_03CanStakeMore(uint _firstAmount, uint _secondAmount, uint32 _secondsToJump)
         public
     {
-        if (_firstAmount > vara.balanceOf(address(this))) 
-        {
-            _firstAmount = vara.balanceOf(address(this));
-        }
-
-        if (_firstAmount < 300*10**18) 
-        {
-            _firstAmount = 300*10**18;
-        }
+        _firstAmount = clamp(_firstAmount, 300*10**18, vara.balanceOf(address(this)));
 
         testSS_SU_02CanStake300orMoreVaraIfNoStakeAtPresent(_firstAmount);
 
-        if (_secondAmount > vara.balanceOf(address(this))) 
-        {
-            _secondAmount = vara.balanceOf(address(this));
-        }
+        _secondAmount = clamp(_secondAmount, 0, vara.balanceOf(address(this)));
     
         vara.approve(address(simpleStaking), _secondAmount);
 
@@ -113,25 +107,49 @@ contract SimpleStakingTest is Test
         vm.expectEmit(true, true, false, true);
         emit Staked(address(this), _secondAmount + stakedBalanceBefore, 90 days, block.timestamp + 90 days);
 
+        uint stakerVaraBalanceBefore = vara.balanceOf(address(this));
+        uint stakingContractVaraBalanceBefore = vara.balanceOf(address(simpleStaking));
+
         simpleStaking.Stake(_secondAmount);
+
         uint stakedBalanceAfter = simpleStaking.stakedFunds(address(this));
         assertEq(stakedBalanceAfter, stakedBalanceBefore + _secondAmount);
         assertEq(stakedBalanceAfter, _firstAmount + _secondAmount);
 
         uint releaseDateAfter = simpleStaking.releaseDates(address(this));
-        assertEq(releaseDateAfter, 90 days + block.timestamp); 
+        assertEq(releaseDateAfter, 90 days + block.timestamp);
+
+        uint stakerVaraBalanceAfter = vara.balanceOf(address(this));
+        uint stakingContractVaraBalanceAfter = vara.balanceOf(address(simpleStaking));
+        assertEq(stakerVaraBalanceAfter, stakerVaraBalanceBefore - _secondAmount);
+        assertEq(stakingContractVaraBalanceAfter, stakingContractVaraBalanceBefore + _secondAmount); 
     }
 
-    function testSS_U01()
+    function testSS_U01CannotUnstakeEarly(uint _amount, uint _secondsToJump)
         public
     {
-        // simpleStaking.Unstake();
+        // logic:
+        // * stake
+        // * skip forward in time, but less than 90 days
+        // * setup revert expect
+        // * try to unstake
+
+        _amount = clamp(_amount, 300*10**18, vara.balanceOf(address(this)));
+        vara.approve(address(simpleStaking), _amount);
+
+        simpleStaking.Stake(_amount);
+
+        _secondsToJump = clamp(_secondsToJump, 0, 90 days - 1 seconds);
+        vm.warp(block.timestamp + _secondsToJump);
+
+        vm.expectRevert(bytes("cannot unstake early"));
+        simpleStaking.Unstake();
     }
 
     function testSS_U02()
         public
     {
-        // simpleStaking.Unstake();
+
     }
 }
 

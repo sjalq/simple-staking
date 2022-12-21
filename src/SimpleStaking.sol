@@ -38,7 +38,7 @@ contract SimpleStaking
     function Unstake()
         public
     {
-        require(releaseDates[msg.sender] > block.timestamp, "too early to unstake");
+        require(releaseDates[msg.sender] <= block.timestamp, "cannot unstake early");
         _unstake(true);
     }
 
