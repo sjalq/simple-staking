@@ -30,6 +30,14 @@ contract SimpleStakingTest is Test
         return value < min ? min : value > max ? max : value;
     }
 
+    function clamp32(uint value, uint min, uint max) 
+        internal 
+        pure 
+        returns (uint32) 
+    {
+        return uint32(clamp(value, min, max));
+    }
+
     function setUp() 
         public 
     {
@@ -146,10 +154,50 @@ contract SimpleStakingTest is Test
         simpleStaking.Unstake();
     }
 
-    function testSS_U02()
+    function testSS_U02CanUnstakeAfterLockupPeriod(uint _amount, uint32 _secondsToJump)
         public
     {
+        // logic:
+        // * stake
+        // * skip forward in time, at least 90 days
+        // * get before values
+        // * setup emit expect
+        // * unstake
+        // * get after values
+        // * assert all is well
 
+        _amount = clamp(_amount, 300*10**18, vara.balanceOf(address(this)));
+        vara.approve(address(simpleStaking), _amount);
+
+        simpleStaking.Stake(_amount);
+
+        uint originalCalculatedReleaseDate = block.timestamp + 90 days;
+
+        _secondsToJump = clamp32(_secondsToJump, 90 days, uint32(int32(-1)));
+        vm.warp(block.timestamp + _secondsToJump);
+
+        assert(originalCalculatedReleaseDate <= block.timestamp);
+
+        uint stakerVaraBalanceBefore = vara.balanceOf(address(this));
+        uint stakingContractVaraBalanceBefore = vara.balanceOf(address(simpleStaking));
+        uint stakerStakeBefore = simpleStaking.stakedFunds(address(this));
+        uint originalReleaseDate = simpleStaking.releaseDates(address(this));
+
+        vm.expectEmit(true, true, true, true);
+        emit Unstaked(address(this), stakerStakeBefore, originalReleaseDate, block.timestamp);
+
+        simpleStaking.Unstake();
+
+        uint stakerVaraBalanceAfter = vara.balanceOf(address(this));
+        uint stakingContractVaraBalanceAfter = vara.balanceOf(address(simpleStaking));
+        uint stakerStakeAfter = simpleStaking.stakedFunds(address(this));
+        uint newReleaseDate = simpleStaking.releaseDates(address(this));
+
+        assertEq(stakerVaraBalanceAfter, stakerVaraBalanceBefore + stakerStakeBefore);
+        assertEq(stakingContractVaraBalanceAfter, stakingContractVaraBalanceBefore - stakerStakeBefore);
+        assertEq(stakerStakeAfter, 0);
+        assertEq(newReleaseDate, 0);
+        assertEq(originalReleaseDate, originalCalculatedReleaseDate);
     }
 }
 
